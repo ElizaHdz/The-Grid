@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Grid · Vota por tu top 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --asphalt: #14181d;
+    --ink: #1c2229;
+    --muted: #5d6772;
+    --line: #d5dae0;
+    --bg: #eceff2;
+    --card: #ffffff;
+    --signal: #1f5bff;
+    --signal-soft: #e6edff;
+    --pit: #ffd400;
+    --ok: #0f7b4b;
+    --err: #b3261e;
+    --head: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.5 var(--body); }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+
+  /* ---------- Header ---------- */
+  header { background: var(--asphalt); color: #fff; position: relative; overflow: hidden; }
+  header::after { /* grid de salida: cuadros en la base del encabezado */
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 10px;
+    background:
+      repeating-linear-gradient(90deg, #fff 0 10px, transparent 10px 20px),
+      repeating-linear-gradient(90deg, transparent 0 10px, #fff 10px 20px);
+    background-size: 100% 5px, 100% 5px; background-position: 0 0, 0 5px; background-repeat: no-repeat;
+    opacity: .9;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  .hero { padding: 36px 0 30px; }
+  .hero h1 { margin: 0; font: 700 clamp(44px, 9vw, 84px)/.92 var(--head); letter-spacing: -.01em; }
+  .hero p { margin: 12px 0 0; max-width: 52ch; color: #c9d0d8; font-size: 17px; }
+
+  nav.tabs { background: var(--asphalt); position: sticky; top: 0; z-index: 20; border-top: 1px solid #2a323b; }
+  nav.tabs .wrap { display: flex; gap: 4px; }
+  .tab { appearance: none; background: none; border: 0; color: #aab3bd; padding: 14px 18px 12px; cursor: pointer;
+         font: 600 19px/1 var(--head); border-bottom: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
+  .tab[aria-selected="true"] { color: #fff; border-bottom-color: var(--pit); }
+  .tab:hover { color: #fff; }
+  .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #35d07f; box-shadow: 0 0 0 0 rgba(53,208,127,.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 8px rgba(53,208,127,0); } 100% { box-shadow: 0 0 0 0 rgba(53,208,127,0); } }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } html { scroll-behavior: auto; } * { transition: none !important; } }
+
+  main { padding: 28px 0 140px; }
+  section[hidden] { display: none; }
+  h2 { margin: 0 0 4px; font: 700 30px/1.1 var(--head); }
+  .sub { margin: 0 0 18px; color: var(--muted); }
+
+  .banner { background: #fff6cc; border: 1px solid #e6cf5a; border-left: 6px solid var(--pit); padding: 12px 16px; margin-bottom: 20px; font-size: 15px; }
+  .banner[hidden] { display: none; }
+
+  /* ---------- Datos del votante ---------- */
+  .who { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--card); border: 1px solid var(--line); padding: 18px; margin-bottom: 30px; }
+  .field label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .field input { width: 100%; padding: 11px 12px; border: 1.5px solid #b9c1ca; background: #fff; border-radius: 0; }
+  .field input:focus { border-color: var(--signal); }
+  .field small { color: var(--muted); font-size: 13px; }
+
+  /* ---------- Lista de equipos ---------- */
+  .list-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .search input { padding: 10px 12px; border: 1.5px solid #b9c1ca; min-width: 240px; background: #fff; border-radius: 0; }
+  .teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+  .team { background: var(--card); border: 1.5px solid var(--line); border-top: 5px solid var(--asphalt); padding: 16px 16px 14px; position: relative; transition: border-color .15s, box-shadow .15s; }
+  .team.picked { border-color: var(--signal); border-top-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
+  .team h3 { margin: 0 56px 2px 0; font: 700 23px/1.1 var(--head); overflow-wrap: anywhere; }
+  .badge { position: absolute; top: 12px; right: 12px; min-width: 44px; height: 44px; display: none; place-items: center; background: var(--pit); color: var(--asphalt); font: 700 26px/1 var(--head); }
+  .team.picked .badge { display: grid; }
+  .agent { margin: 8px 0 0; font-size: 14px; }
+  .agent b { font-weight: 600; }
+  .agent + .agent { margin-top: 10px; }
+  .agent .label { display: block; color: var(--muted); font-size: 12.5px; }
+  .desc { margin: 4px 0 0; font-size: 14.5px; line-height: 1.5; white-space: pre-line; color: #2c343c; }
+  .desc.clamp { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+  .desc.empty { color: var(--muted); font-style: italic; }
+  .more { appearance: none; border: 0; background: none; color: var(--signal); font-weight: 600; padding: 4px 0 0; cursor: pointer; font-size: 14px; }
+  .rank { display: grid; grid-template-columns: auto repeat(3, 1fr); gap: 6px; margin-top: 14px; align-items: stretch; }
+  .rank span { align-self: center; font-size: 13px; color: var(--muted); padding-right: 4px; }
+  .rank button { appearance: none; background: #fff; border: 1.5px solid #b9c1ca; padding: 8px 0; cursor: pointer; font: 700 18px/1 var(--head); }
+  .rank button:hover { border-color: var(--signal); background: var(--signal-soft); }
+  .rank button[aria-pressed="true"] { background: var(--signal); border-color: var(--signal); color: #fff; }
+  .rank button.taken { color: #8a949f; }
+  .none { padding: 30px; text-align: center; color: var(--muted); background: var(--card); border: 1px dashed var(--line); }
+
+  /* ---------- Barra de envío ---------- */
+  .submitbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--asphalt); color: #fff; z-index: 30; border-top: 4px solid var(--pit); }
+  .submitbar[hidden] { display: none; }
+  .submitbar .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding-top: 12px; padding-bottom: 12px; }
+  .picks { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; min-width: 0; }
+  .picks div { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+  .picks b { font: 700 20px/1 var(--head); color: var(--pit); }
+  .picks em { font-style: normal; color: #c9d0d8; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picks em.on { color: #fff; font-weight: 600; }
+  .send { appearance: none; border: 0; background: var(--pit); color: var(--asphalt); font: 700 20px/1 var(--head); padding: 14px 26px; cursor: pointer; }
+  .send:disabled { background: #59616a; color: #aab3bd; cursor: not-allowed; }
+  .status { flex-basis: 100%; font-size: 14px; margin: 0; min-height: 0; }
+  .status.err { color: #ffb4ab; }
+  .status:empty { display: none; }
+
+  /* ---------- Confirmación ---------- */
+  .thanks { background: var(--card); border: 1.5px solid var(--ok); border-left: 8px solid var(--ok); padding: 24px; }
+  .thanks h2 { color: var(--ok); }
+  .thanks .go { appearance: none; border: 0; background: var(--asphalt); color: #fff; font: 700 19px/1 var(--head); padding: 13px 22px; cursor: pointer; margin-top: 10px; }
+
+  /* ---------- Resultados ---------- */
+  .totals { display: flex; flex-wrap: wrap; gap: 28px; margin-bottom: 22px; }
+  .totals div { background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--asphalt); padding: 10px 18px; }
+  .totals b { display: block; font: 700 40px/1 var(--head); }
+  .totals span { color: var(--muted); font-size: 14px; }
+  .tower { background: var(--asphalt); color: #fff; padding: 8px; list-style: none; margin: 0; }
+  .row { display: grid; grid-template-columns: 46px minmax(0, 1fr) 70px; gap: 12px; align-items: center; padding: 10px 10px; border-bottom: 1px solid #28303a; position: relative; }
+  .row:last-child { border-bottom: 0; }
+  .pos { font: 700 26px/1 var(--head); text-align: center; color: #aab3bd; }
+  .row.podium .pos { background: var(--pit); color: var(--asphalt); padding: 8px 0; }
+  .name { font: 600 19px/1.15 var(--head); overflow-wrap: anywhere; }
+  .agentname { color: #aab3bd; font-size: 13px; }
+  .bar { height: 8px; background: #2a323b; margin-top: 7px; }
+  .bar i { display: block; height: 100%; width: 0; background: #6f9bff; transition: width .6s ease; }
+  .row.podium .bar i { background: var(--pit); }
+  .pts { text-align: right; font: 700 28px/1 var(--head); }
+  .pts small { display: block; font: 400 12px/1.2 var(--body); color: #aab3bd; }
+  .split { color: #aab3bd; font-size: 12.5px; margin-top: 5px; }
+  .empty-results { padding: 28px; background: var(--card); border: 1px dashed var(--line); text-align: center; color: var(--muted); }
+  .note { color: var(--muted); font-size: 13.5px; margin-top: 14px; }
+
+  @media (max-width: 640px) {
+    .who { grid-template-columns: 1fr; }
+    .teams { grid-template-columns: 1fr; }
+    .tab { padding: 13px 12px 11px; font-size: 17px; }
+    .row { grid-template-columns: 38px minmax(0, 1fr) 56px; gap: 8px; }
+    .send { width: 100%; }
+    .picks em { max-width: 16ch; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hero">
+    <h1>The Grid</h1>
+    <p>Conoce a los equipos y sus agentes de IA. Elige tu top 3 y mira cómo avanza la votación en vivo.</p>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Secciones">
+  <div class="wrap" role="tablist">
+    <button class="tab" role="tab" id="tab-vote" aria-controls="view-vote" aria-selected="true">Votar</button>
+    <button class="tab" role="tab" id="tab-results" aria-controls="view-results" aria-selected="false">
+      <span class="live-dot" aria-hidden="true"></span>Resultados en vivo
+    </button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="banner" id="demoBanner" hidden>
+    <b>Modo de prueba.</b> Firebase aún no está configurado, así que los votos se guardan solo en este navegador.
+    Pega tu configuración en <code>FIREBASE_CONFIG</code> dentro de este archivo para activar la votación compartida.
+  </div>
+
+  <!-- ===================== VOTAR ===================== -->
+  <section id="view-vote" role="tabpanel" aria-labelledby="tab-vote">
+    <div id="voteForm">
+      <h2>Tus datos</h2>
+      <p class="sub">Un voto por correo. Tu nombre y correo no se muestran en los resultados.</p>
+      <div class="who">
+        <div class="field">
+          <label for="name">Nombre</label>
+          <input id="name" type="text" autocomplete="name" maxlength="100" placeholder="Nombre y apellido">
+        </div>
+        <div class="field">
+          <label for="email">Correo</label>
+          <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="nombre@empresa.com">
+          <small id="domainHint"></small>
+        </div>
+      </div>
+
+      <div class="list-head">
+        <div>
+          <h2>Elige tu top 3</h2>
+          <p class="sub" style="margin:0">Marca 1°, 2° y 3° en las tarjetas. Si repites un lugar, se mueve al nuevo equipo.</p>
+        </div>
+        <div class="search"><input id="filter" type="search" placeholder="Buscar equipo o agente" aria-label="Buscar equipo o agente"></div>
+      </div>
+      <div class="teams" id="teams"></div>
+      <div class="none" id="noMatch" hidden>Ningún equipo coincide con tu búsqueda.</div>
+    </div>
+
+    <div class="thanks" id="thanks" hidden>
+      <h2>Voto registrado</h2>
+      <p id="thanksText">Gracias por votar.</p>
+      <button class="go" id="goResults">Ver resultados en vivo</button>
+    </div>
+  </section>
+
+  <!-- ===================== RESULTADOS ===================== -->
+  <section id="view-results" role="tabpanel" aria-labelledby="tab-results" hidden>
+    <h2>Resultados en vivo</h2>
+    <p class="sub">Se actualiza solo cuando alguien vota. 1.er lugar = 3 puntos, 2.º = 2 puntos, 3.º = 1 punto.</p>
+    <div class="totals">
+      <div><b id="totalVoters">0</b><span>votantes</span></div>
+      <div><b id="leaderName" style="font-size:26px;line-height:1.1">—</b><span>va en primer lugar</span></div>
+    </div>
+    <div class="empty-results" id="emptyResults">Aún no hay votos. Los resultados aparecen aquí en cuanto alguien vote.</div>
+    <ol class="tower" id="tower" hidden></ol>
+    <p class="note">Desempate: más votos de 1.er lugar, luego orden alfabético.</p>
+  </section>
+</main>
+
+<div class="submitbar" id="submitbar">
+  <div class="wrap">
+    <div class="picks" id="picks" aria-live="polite"></div>
+    <button class="send" id="send" disabled>Enviar mi voto</button>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<script type="module">
+/* =====================================================================
+   CONFIGURACIÓN
+   1) Crea un proyecto en Firebase y una base de datos Firestore.
+   2) Pega aquí los datos de tu app web (Configuración del proyecto > Tus apps).
+   3) Publica las reglas del archivo firestore.rules.
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAGj0qMZi23xPkVUweBdDDjYJ2SycHCHDc",
+  authDomain: "grid-c2f7d.firebaseapp.com",
+  projectId: "grid-c2f7d",
+  storageBucket: "grid-c2f7d.firebasestorage.app",
+  messagingSenderId: "515113110578",
+  appId: "1:515113110578:web:e52cef9c0b533fb3ee002b",
+  measurementId: "G-HNXYYHZNMJ"
+};
+
+// Opcional: restringe los votos a un dominio de correo, por ejemplo "@tuempresa.com". Déjalo vacío para aceptar cualquiera.
+const ALLOWED_DOMAIN = "";
+
+/* =====================================================================
+   EQUIPOS Y AGENTES (fuente: Asignacion_Equipos_The_Grid.xlsx)
+   ===================================================================== */
+const TEAMS = [
+  { id: "t01", team: "Nearshoring 1969", agents: [
+    { name: "", desc: "Aplicar check list para evaluar desempeño de proveedor crítico en base a KPI´s relacionados que impidan el maquillaje de evidencias." }]},
+  { id: "t02", team: "BN Industries", agents: [
+    { name: "Steering Assistant for Fast Excecution (SAFE)", desc: "An automatic tracking tool for the implementation and lifetime of new projects." }]},
+  { id: "t03", team: "BM1", agents: [
+    { name: "Current Supplier Relation", desc: "Current Supplier Relations analysisi and cration of current status for master presentation." }]},
+  { id: "t04", team: "KTM Milestone Watch", agents: [
+    { name: "Master plan for new programs (RG0-RG7)", desc: "The project aims to optimize the time traditionally allocated to the presentation of critical supplier information, including project timing, industrialization status, sub-supplier management, feasibility assessments, and other relevant topics. In addition, it seeks to enhance data analysis, strengthen action follow-up, and identify continuous improvement opportunities.\nMeetings expected to benefit from the agent's preliminary analysis include:\n- Quality Technical Review (QTR)\n- Program Management Review (PMR)\n- Commitment Review Meetings\n- Weekly Supplier Review Meetings\nThe anticipated outcome is a 40% to 50% reduction in the time required for Priority A part reviews, particularly during the early phases of the project. During the weekly supplier review stage, the primary objective is to improve meeting effectiveness by enabling the agent to proactively identify risk areas and critical topics that require focused discussion and decision-making avoiding timing impacts in the milestones of the project." }]},
+  { id: "t05", team: "BSM - Electrico", agents: [
+    { name: "Extra Support LTM/KTM", desc: "The goal of the project is to automate the request for extraordinary technical support for the purchasing area. In the past, it was done manually. Now the request is done electronically, allowing for more efficient management, and with the records from that management, we can understand what resources we are allocating to that support." }]},
+  { id: "t06", team: "Tariffs cockpit", agents: [
+    { name: "Tariff reinforcer", desc: "Sponsor: Till von Bothmer.\nTo develop an automated dashboard to report status per Commodity for tariffs as well as an executive view of progress." }]},
+  { id: "t07", team: "PKO Value Drivers", agents: [
+    { name: "PKO ORION", desc: "Develop an intelligent agent capable of consolidating user-provided information into a centralized knowledge base that can be used to generate Yellow Sheets and Blue Sheets. The agent should also be able to interpret and analyze existing Yellow and Blue Sheets, extract key data, and identify impacted part numbers (NPs), supporting efficient evaluation and decision-making processes." }]},
+  { id: "t08", team: "PredictIA: General Purchasing Innovation Team", agents: [
+    { name: "PredictIA", desc: "PredictIA es un agente inteligente diseñado para Compras Generales que analiza históricos de Órdenes de Compra, proveedores, categorías, áreas solicitantes y montos para predecir futuras necesidades de adquisición, identificar patrones recurrentes y anticipar la demanda. A través de modelos predictivos permite detectar oportunidades de consolidación, optimizar estrategias de sourcing y fortalecer las negociaciones con proveedores mediante una mejor visibilidad de volúmenes futuros esperados. Su objetivo es transformar la gestión de compras de un enfoque reactivo a uno predictivo y estratégico, impulsando ahorros, eficiencia operativa y generación de valor para el negocio." },
+    { name: "Buylinguo", desc: "" }]},
+  { id: "t09", team: "BP team", agents: [
+    { name: "BP AI", desc: "Develop a streamlined and efficient tracking tool to enable monitoring and timely coordination of Business Plan activities, accountability, and cross-functional alignment." }]},
+  { id: "t10", team: "Strategic Sourcing Intelligence Team", agents: [
+    { name: "QuoteIQ", desc: "The agent will automatically analyze and standardize quotations from various suppliers and formats, accelerating AEKO and sourcing evaluations. This will streamline the quotation review process and allow buyers to dedicate more time to supplier negotiations and strategic purchasing activities." }]},
+  { id: "t11", team: "Steel Value Engineering Team", agents: [
+    { name: "SteelWise", desc: "Desarrollar un agente de análisis de acero que utilice la información contenida en las hojas amarillas para identificar oportunidades de optimización y ahorro.\n\nEl agente consolidará los grados de acero, especificaciones y requisitos técnicos utilizados por los diferentes proveedores, generando una matriz comparativa que permita identificar materiales comunes entre piezas, plataformas y proveedores.\n\nA partir de esta información, el agente podrá:\n- Comparar los grados de acero utilizados por diferentes proveedores.\n- Mostrar el precio pagado por cada proveedor para materiales similares.\n- Generar promedios y referencias de costo por tipo de acero.\n- Detectar oportunidades de estandarización y consolidación de volúmenes.\n- Identificar diferencias de costo para materiales equivalentes.\n- Comparar la información interna con tendencias de mercado obtenidas de plataformas como Marketlines.\n- Incorporar información de otras regiones, como Alemania, para realizar benchmarks globales y evaluar oportunidades de suministro con molinos alternativos, incluyendo molinos chinos.\n\nEl objetivo final es crear una base de conocimiento que permita tomar decisiones de compra más informadas, aprovechar economías de escala, identificar oportunidades de ahorro y fortalecer la estrategia de abastecimiento de acero a nivel global." }]},
+  { id: "t12", team: "Artificially Intelligent - Spongebob, we have the technology.", agents: [
+    { name: "Alex Bot", desc: "Negotiation & Presentation Builder" }]},
+  { id: "t13", team: "Purchaysing Is In the Line", agents: [
+    { name: "BW Reducer", desc: "Find an automated work around to repetitive BN tasks." }]},
+  { id: "t14", team: "The Connectivity Prompt Squad", agents: [
+    { name: "The Connectivity Prompt Squad", desc: "Automate the tracking reporting of various tasks from different departments and emails" }]},
+  { id: "t15", team: "RIIZE", agents: [
+    { name: "Wizard of Capacity", desc: "AI extracts capacity, lead time, and constraints from the raw data/audit results\nStandard report generated in minutes, with flagged risks" }]},
+  { id: "t16", team: "DUNS & Dragons", agents: [
+    { name: "Supplier Compliance Checker", desc: "The Supplier Compliance Checker allows a buyer to upload a screenshot of suppliers directly from a GLOBE sourcing event. The tool then identifies the suppliers and automatically performs a series of compliance and qualification checks, including S-rating relevance, S-rating status, financial rating, and general contractor license in all 50 US states. This will consolidate supplier qualification info into one view, reducing time, complexity and clicks for buyers." }]},
+  { id: "t17", team: "Ctrl + Alt + Procure", agents: [
+    { name: "NAR BP Navigator", desc: "Help General Purchasing users anticipate upcoming VW NAR BP processes to improve collaboration, guide discussions with management, and generally stay informed. Automate / schedule push notifications and digest reports.\n\nUses SharePoint Business Plan & Phone Book (Misc.) sources to identify upcoming processes owned by the user and related topics." }]},
+  { id: "t18", team: "BN", agents: [
+    { name: "Sourcings Tracker", desc: "Crear un CRM para seguimiento de mis sourcings, desde el kick off hasta la nominación." }]},
+  { id: "t19", team: "BN Learning", agents: [
+    { name: "Pregúntale a BN", desc: "Hacer que el conocimiento de compras sea un activo." }]},
+  { id: "t20", team: "Value Engineering Mx", agents: [
+    { name: "KONG AGENT", desc: "Optimization Ideas Creation and Implementation Support Assistant Agent" }]},
+  { id: "t21", team: "Singularity", agents: [
+    { name: "Quote Autopsy Agent", desc: "Quote Autopsy Agent leverages AI to perform an in-depth commercial assessment of supplier quotations, identifying optimization opportunities, cost improvement levers, hidden commercial impacts, negotiation points and sourcing risks before supplier selection. The solution transforms complex quotation reviews into actionable intelligence, enabling faster and better-informed procurement decisions." }]},
+  { id: "t22", team: "ConsolidAI", agents: [
+    { name: "Strategic Supplier Consolidation", desc: "Strategic Supplier Consolidation is an AI-powered agent designed to identify supplier consolidation opportunities across commodities, regions, and business units. By analyzing sourcing and supplier data, it provides actionable recommendations to reduce supplier complexity, leverage purchasing power, optimize costs, and support strategic procurement decisions." }]},
+  { id: "t23", team: "Soporte IA", agents: [
+    { name: "Soporte a usuarios con IA", desc: "Implementar un agente con IA para dar soporte por celular a los usuarios de compras sobre temas de sistemas o procesos. El agente tendría 2 variantes: soporte por celular y soporte por WhatsApp." }]},
+  { id: "t24", team: "Chattanooga Value Engineering", agents: [
+    { name: "Meeting Task Reminder", desc: "Help users choose a meeting from their accessible calendar or recent meeting history, then convert that meeting’s discussion into actionable reminder drafts. Identify agreed tasks, owners, due dates, context, and next steps from the selected meeting, then prioritize the user’s own responsibilities and produce clear, review-ready follow-up emails the user can approve, copy, and send." }]},
+  { id: "t25", team: "KTM Powertrain", agents: [
+    { name: "Project Manager KTM", desc: "" }]}
+];
+
+/* =====================================================================
+   UTILIDADES
+   ===================================================================== */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const byId = Object.fromEntries(TEAMS.map((t) => [t.id, t]));
+const ORD = ["1°", "2°", "3°"];
+const configured = !String(FIREBASE_CONFIG.apiKey).startsWith("PEGA") && !String(FIREBASE_CONFIG.projectId).startsWith("TU_");
+
+function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function safeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } }
+
+async function hashEmail(email) {
+  const data = new TextEncoder().encode("the-grid|" + email.trim().toLowerCase());
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* =====================================================================
+   BACKEND (Firebase o modo de prueba local)
+   ===================================================================== */
+let backend;
+
+async function initFirebase() {
+  const V = "10.12.2";
+  const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+  const fs = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+  const app = initializeApp(FIREBASE_CONFIG);
+  const db = fs.getFirestore(app);
+  return {
+    async submit({ name, email, picks }) {
+      const id = await hashEmail(email);
+      const batch = fs.writeBatch(db);
+      // "voters" es privado (las reglas impiden leerlo). "votes" solo guarda los lugares elegidos.
+      batch.set(fs.doc(db, "voters", id), { name, email: email.trim().toLowerCase(), createdAt: fs.serverTimestamp() });
+      batch.set(fs.doc(db, "votes", id), { picks, createdAt: fs.serverTimestamp() });
+      await batch.commit();
+    },
+    subscribe(cb, onError) {
+      return fs.onSnapshot(fs.collection(db, "votes"), (snap) => cb(snap.docs.map((d) => d.data().picks)), onError);
+    }
+  };
+}
+
+function demoBackend() {
+  const KEY = "grid_demo_votes";
+  const listeners = new Set();
+  const read = () => { try { return JSON.parse(safeGet(KEY) || "[]"); } catch { return []; } };
+  const emit = () => listeners.forEach((cb) => cb(read().map((v) => v.picks)));
+  window.addEventListener("storage", emit);
+  return {
+    async submit({ email, picks }) {
+      const id = await hashEmail(email);
+      const all = read();
+      if (all.some((v) => v.id === id)) { const e = new Error("duplicate"); e.code = "permission-denied"; throw e; }
+      all.push({ id, picks });
+      safeSet(KEY, JSON.stringify(all));
+      emit();
+    },
+    subscribe(cb) { listeners.add(cb); cb(read().map((v) => v.picks)); return () => listeners.delete(cb); }
+  };
+}
+
+/* =====================================================================
+   TARJETAS DE EQUIPOS
+   ===================================================================== */
+const picks = [null, null, null]; // ids de equipo para 1°, 2°, 3°
+const teamsEl = $("#teams");
+
+function agentHtml(a) {
+  const desc = (a.desc || "").trim();
+  const long = desc.length > 260 || desc.split("\n").length > 5;
+  return `<div class="agent">
+      <span class="label">Agente</span><b>${esc(a.name || "Nombre por confirmar")}</b>
+      <p class="desc ${desc ? (long ? "clamp" : "") : "empty"}">${desc ? esc(desc) : "Descripción pendiente."}</p>
+      ${long ? '<button type="button" class="more" aria-expanded="false">Leer más</button>' : ""}
+    </div>`;
+}
+
+function renderTeams() {
+  teamsEl.innerHTML = TEAMS.map((t) => `
+    <article class="team" data-id="${t.id}" data-search="${esc((t.team + " " + t.agents.map((a) => a.name).join(" ")).toLowerCase())}">
+      <div class="badge" aria-hidden="true"></div>
+      <h3>${esc(t.team)}</h3>
+      ${t.agents.map(agentHtml).join("")}
+      <div class="rank" role="group" aria-label="Lugar para ${esc(t.team)}">
+        <span>Mi lugar</span>
+        ${ORD.map((o, i) => `<button type="button" data-rank="${i}" aria-pressed="false" aria-label="${o} lugar para ${esc(t.team)}">${o}</button>`).join("")}
+      </div>
+    </article>`).join("");
+}
+
+teamsEl.addEventListener("click", (e) => {
+  const more = e.target.closest(".more");
+  if (more) {
+    const d = more.parentElement.querySelector(".desc");
+    const open = d.classList.toggle("clamp") === false;
+    more.textContent = open ? "Leer menos" : "Leer más";
+    more.setAttribute("aria-expanded", String(open));
+    return;
+  }
+  const btn = e.target.closest(".rank button");
+  if (!btn) return;
+  const id = btn.closest(".team").dataset.id;
+  const r = Number(btn.dataset.rank);
+  if (picks[r] === id) { picks[r] = null; }
+  else { const prev = picks.indexOf(id); if (prev !== -1) picks[prev] = null; picks[r] = id; }
+  syncPicks();
+});
+
+function syncPicks() {
+  document.querySelectorAll(".team").forEach((card) => {
+    const id = card.dataset.id;
+    const idx = picks.indexOf(id);
+    card.classList.toggle("picked", idx !== -1);
+    card.querySelector(".badge").textContent = idx !== -1 ? ORD[idx] : "";
+    card.querySelectorAll(".rank button").forEach((b) => {
+      const r = Number(b.dataset.rank);
+      b.setAttribute("aria-pressed", String(picks[r] === id));
+      b.classList.toggle("taken", picks[r] !== null && picks[r] !== id);
+    });
+  });
+  $("#picks").innerHTML = picks.map((id, i) =>
+    `<div><b>${ORD[i]}</b><em class="${id ? "on" : ""}">${id ? esc(byId[id].team) : "sin elegir"}</em></div>`).join("");
+  updateSend();
+}
+
+$("#filter").addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  let shown = 0;
+  document.querySelectorAll(".team").forEach((c) => {
+    const ok = !q || c.dataset.search.includes(q);
+    c.hidden = !ok; if (ok) shown++;
+  });
+  $("#noMatch").hidden = shown > 0;
+});
+
+/* =====================================================================
+   ENVÍO DEL VOTO
+   ===================================================================== */
+const statusEl = $("#status");
+const sendBtn = $("#send");
+const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function setStatus(msg, isErr) { statusEl.textContent = msg || ""; statusEl.classList.toggle("err", !!isErr); }
+function updateSend() { sendBtn.disabled = picks.some((p) => p === null); }
+
+if (ALLOWED_DOMAIN) $("#domainHint").textContent = `Usa tu correo ${ALLOWED_DOMAIN}.`;
+
+sendBtn.addEventListener("click", async () => {
+  const name = $("#name").value.trim();
+  const email = $("#email").value.trim().toLowerCase();
+  if (!name) { setStatus("Escribe tu nombre.", true); $("#name").focus(); return; }
+  if (!emailRe.test(email)) { setStatus("Escribe un correo válido.", true); $("#email").focus(); return; }
+  if (ALLOWED_DOMAIN && !email.endsWith(ALLOWED_DOMAIN.toLowerCase())) {
+    setStatus(`Solo se aceptan correos ${ALLOWED_DOMAIN}.`, true); $("#email").focus(); return;
+  }
+  if (picks.some((p) => p === null)) { setStatus("Elige tu 1°, 2° y 3° lugar.", true); return; }
+
+  sendBtn.disabled = true; setStatus("Enviando tu voto…");
+  try {
+    await backend.submit({ name, email, picks: [...picks] });
+    safeSet("grid_voted", JSON.stringify({ picks: [...picks] }));
+    showThanks([...picks]);
+  } catch (err) {
+    console.error(err);
+    if (err && err.code === "permission-denied") {
+      setStatus("No se pudo registrar: este correo ya votó, o las reglas de Firestore no están publicadas.", true);
+    } else {
+      setStatus("No se pudo enviar tu voto. Revisa tu conexión e inténtalo de nuevo.", true);
+    }
+    updateSend();
+  }
+});
+
+function showThanks(p) {
+  $("#voteForm").hidden = true;
+  $("#submitbar").hidden = true;
+  $("#thanks").hidden = false;
+  $("#thanksText").textContent = `Tu top 3: 1° ${byId[p[0]].team}, 2° ${byId[p[1]].team}, 3° ${byId[p[2]].team}.`;
+  setStatus("");
+  window.scrollTo({ top: 0 });
+}
+$("#goResults").addEventListener("click", () => selectTab("results"));
+
+/* =====================================================================
+   RESULTADOS EN VIVO
+   ===================================================================== */
+function renderResults(allPicks) {
+  const stats = Object.fromEntries(TEAMS.map((t) => [t.id, { pts: 0, c: [0, 0, 0] }]));
+  allPicks.forEach((p) => p.forEach((id, i) => { if (stats[id]) { stats[id].pts += 3 - i; stats[id].c[i]++; } }));
+  const ranked = TEAMS.map((t) => ({ t, ...stats[t.id] }))
+    .sort((a, b) => b.pts - a.pts || b.c[0] - a.c[0] || a.t.team.localeCompare(b.t.team));
+  const max = ranked[0].pts || 0;
+
+  $("#totalVoters").textContent = allPicks.length;
+  $("#leaderName").textContent = max > 0 ? ranked[0].t.team : "—";
+  $("#emptyResults").hidden = allPicks.length > 0;
+  const tower = $("#tower");
+  tower.hidden = allPicks.length === 0;
+  tower.innerHTML = ranked.map((r, i) => `
+    <li class="row ${i < 3 && r.pts > 0 ? "podium" : ""}">
+      <div class="pos">${i + 1}</div>
+      <div>
+        <div class="name">${esc(r.t.team)}</div>
+        <div class="agentname">${esc(r.t.agents.map((a) => a.name).filter(Boolean).join(" · "))}</div>
+        <div class="bar"><i style="width:${max ? Math.round((r.pts / max) * 100) : 0}%"></i></div>
+        <div class="split">1°: ${r.c[0]} · 2°: ${r.c[1]} · 3°: ${r.c[2]}</div>
+      </div>
+      <div class="pts">${r.pts}<small>puntos</small></div>
+    </li>`).join("");
+}
+
+/* =====================================================================
+   PESTAÑAS
+   ===================================================================== */
+function selectTab(which) {
+  const vote = which === "vote";
+  $("#view-vote").hidden = !vote;
+  $("#view-results").hidden = vote;
+  $("#tab-vote").setAttribute("aria-selected", String(vote));
+  $("#tab-results").setAttribute("aria-selected", String(!vote));
+  const voted = !$("#voteForm").hidden === false;
+  $("#submitbar").hidden = !vote || voted;
+  window.scrollTo({ top: 0 });
+}
+$("#tab-vote").addEventListener("click", () => selectTab("vote"));
+$("#tab-results").addEventListener("click", () => selectTab("results"));
+
+/* =====================================================================
+   ARRANQUE
+   ===================================================================== */
+renderTeams();
+syncPicks();
+renderResults([]);
+
+(async () => {
+  try {
+    backend = configured ? await initFirebase() : demoBackend();
+  } catch (err) {
+    console.error(err);
+    backend = demoBackend();
+    $("#demoBanner").hidden = false;
+    $("#demoBanner").innerHTML = "<b>No se pudo conectar con Firebase.</b> Revisa tu configuración. Mientras tanto, los votos se guardan solo en este navegador.";
+  }
+  if (!configured) $("#demoBanner").hidden = false;
+
+  backend.subscribe(renderResults, (err) => {
+    console.error(err);
+    $("#emptyResults").hidden = false;
+    $("#emptyResults").textContent = "No se pudieron cargar los resultados. Revisa las reglas de Firestore.";
+  });
+
+  const prev = safeGet("grid_voted");
+  if (prev) { try { showThanks(JSON.parse(prev).picks); } catch { /* ignorar */ } }
+})();
+</script>
+</body>
+</html>
