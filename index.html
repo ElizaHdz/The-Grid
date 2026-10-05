@@ -416,15 +416,15 @@
   <section id="view-vote" role="tabpanel" aria-labelledby="tab-vote">
     <div id="voteForm">
       <h2>Tus datos</h2>
-      <p class="sub">Un voto por persona. Usa tu correo @vw.com.mx: solo se guarda tu nombre y la parte anterior a la @, nunca el correo completo. Nada de esto se muestra en los resultados.</p>
+      <p class="sub">Un voto por persona. Usa tu correo @vw.com.mx:</p>
       <div class="who">
         <div class="field">
           <label for="name">Nombre</label>
-          <input id="name" type="text" autocomplete="name" maxlength="100" placeholder="Nombre y apellido">
+          <input id="name" type="text" autocomplete="name" maxlength="100" placeholder="Nombre Completo">
         </div>
         <div class="field">
           <label for="email">Correo</label>
-          <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="nombre.apellido@vw.com.mx">
+          <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="Correo VW">
           <small id="domainHint"></small>
         </div>
       </div>
@@ -1040,7 +1040,7 @@ const userRe = /^[a-z0-9][a-z0-9._-]{0,63}$/; // parte anterior a la @
 function setStatus(msg, isErr) { statusEl.textContent = msg || ""; statusEl.classList.toggle("err", !!isErr); }
 function updateSend() { sendBtn.disabled = picks.some((p) => p === null); }
 
-if (ALLOWED_DOMAIN) $("#domainHint").textContent = `Usa tu correo ${ALLOWED_DOMAIN}. Solo se guarda lo que va antes de la @.`;
+if (ALLOWED_DOMAIN) $("#domainHint").textContent = `Usa tu correo ${ALLOWED_DOMAIN}`;
 
 sendBtn.addEventListener("click", async () => {
   const name = $("#name").value.trim();
