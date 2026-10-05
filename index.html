@@ -416,7 +416,7 @@
   <section id="view-vote" role="tabpanel" aria-labelledby="tab-vote">
     <div id="voteForm">
       <h2>Tus datos</h2>
-      <p class="sub">Un voto por correo. Tu nombre y correo no se muestran en los resultados.</p>
+      <p class="sub">Un voto por persona. Usa tu correo @vw.com.mx: solo se guarda tu nombre y la parte anterior a la @, nunca el correo completo. Nada de esto se muestra en los resultados.</p>
       <div class="who">
         <div class="field">
           <label for="name">Nombre</label>
@@ -424,7 +424,7 @@
         </div>
         <div class="field">
           <label for="email">Correo</label>
-          <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="nombre@empresa.com">
+          <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="nombre.apellido@vw.com.mx">
           <small id="domainHint"></small>
         </div>
       </div>
@@ -529,7 +529,8 @@ const FIREBASE_CONFIG = {
   measurementId: "G-HNXYYHZNMJ"
 };
 
-// Opcional: restringe los votos a un dominio de correo, por ejemplo "@tuempresa.com". Déjalo vacío para aceptar cualquiera.
+// Dominio de correo permitido. Se valida aquí, en el navegador. El correo completo NUNCA se envía a la base de datos:
+// solo se guarda la parte anterior a la @ (por ejemplo, "fatima.hernandez").
 const ALLOWED_DOMAIN = "@vw.com.mx";
 
 /* =====================================================================
@@ -602,8 +603,15 @@ const configured = !String(FIREBASE_CONFIG.apiKey).startsWith("PEGA") && !String
 function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } }
 
-async function hashEmail(email) {
-  const data = new TextEncoder().encode("the-grid|" + email.trim().toLowerCase());
+// Separa "usuario@dominio". Devuelve null si no hay exactamente una @.
+function splitEmail(email) {
+  const parts = email.trim().toLowerCase().split("@");
+  return parts.length === 2 ? { user: parts[0], domain: parts[1] } : null;
+}
+
+// El id del voto se calcula solo con el usuario (sin dominio), así el correo completo no se guarda en ningún lado.
+async function hashUser(user) {
+  const data = new TextEncoder().encode("the-grid|" + user.trim().toLowerCase());
   const buf = await crypto.subtle.digest("SHA-256", data);
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -801,11 +809,12 @@ async function initFirebase() {
   const app = initializeApp(FIREBASE_CONFIG);
   const db = fs.getFirestore(app);
   return {
-    async submit({ name, email, picks }) {
-      const id = await hashEmail(email);
+    async submit({ name, user, picks }) {
+      const id = await hashUser(user);
       const batch = fs.writeBatch(db);
-      // "voters" es privado (las reglas impiden leerlo). "votes" solo guarda los lugares elegidos.
-      batch.set(fs.doc(db, "voters", id), { name, email: email.trim().toLowerCase(), createdAt: fs.serverTimestamp() });
+      // "voters" es privado (las reglas impiden leerlo) y solo guarda nombre y usuario, sin dominio de correo.
+      // "votes" solo guarda los lugares elegidos.
+      batch.set(fs.doc(db, "voters", id), { name, usuario: user, createdAt: fs.serverTimestamp() });
       batch.set(fs.doc(db, "votes", id), { picks, createdAt: fs.serverTimestamp() });
       await batch.commit();
     },
@@ -822,8 +831,8 @@ function demoBackend() {
   const emit = () => listeners.forEach((cb) => cb(read().map((v) => v.picks)));
   window.addEventListener("storage", emit);
   return {
-    async submit({ email, picks }) {
-      const id = await hashEmail(email);
+    async submit({ user, picks }) {
+      const id = await hashUser(user);
       const all = read();
       if (all.some((v) => v.id === id)) { const e = new Error("duplicate"); e.code = "permission-denied"; throw e; }
       all.push({ id, picks });
@@ -1026,26 +1035,33 @@ syncScenes();
    ===================================================================== */
 const statusEl = $("#status");
 const sendBtn = $("#send");
-const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const userRe = /^[a-z0-9][a-z0-9._-]{0,63}$/; // parte anterior a la @
 
 function setStatus(msg, isErr) { statusEl.textContent = msg || ""; statusEl.classList.toggle("err", !!isErr); }
 function updateSend() { sendBtn.disabled = picks.some((p) => p === null); }
 
-if (ALLOWED_DOMAIN) $("#domainHint").textContent = `Usa tu correo ${ALLOWED_DOMAIN}.`;
+if (ALLOWED_DOMAIN) $("#domainHint").textContent = `Usa tu correo ${ALLOWED_DOMAIN}. Solo se guarda lo que va antes de la @.`;
 
 sendBtn.addEventListener("click", async () => {
   const name = $("#name").value.trim();
   const email = $("#email").value.trim().toLowerCase();
   if (!name) { setStatus("Escribe tu nombre.", true); $("#name").focus(); return; }
-  if (!emailRe.test(email)) { setStatus("Escribe un correo válido.", true); $("#email").focus(); return; }
-  if (ALLOWED_DOMAIN && !email.endsWith(ALLOWED_DOMAIN.toLowerCase())) {
-    setStatus(`Solo se aceptan correos ${ALLOWED_DOMAIN}.`, true); $("#email").focus(); return;
+  const parts = splitEmail(email);
+  if (!parts || !parts.user || !parts.domain) {
+    setStatus(`Escribe tu correo completo, por ejemplo nombre.apellido${ALLOWED_DOMAIN}.`, true); $("#email").focus(); return;
+  }
+  if (ALLOWED_DOMAIN && "@" + parts.domain !== ALLOWED_DOMAIN.toLowerCase()) {
+    setStatus(`Solo se aceptan correos ${ALLOWED_DOMAIN}. Usa tu correo de VW, no uno personal.`, true); $("#email").focus(); return;
+  }
+  if (!userRe.test(parts.user)) {
+    setStatus("Tu correo tiene caracteres no válidos antes de la @. Revisa que esté bien escrito.", true); $("#email").focus(); return;
   }
   if (picks.some((p) => p === null)) { setStatus("Elige tu 1°, 2° y 3° lugar.", true); return; }
 
   sendBtn.disabled = true; setStatus("Enviando tu voto…");
   try {
-    await backend.submit({ name, email, picks: [...picks] });
+    await backend.submit({ name, user: parts.user, picks: [...picks] }); // el correo completo no sale del navegador
+    $("#email").value = "";
     safeSet("grid_voted", JSON.stringify({ picks: [...picks] }));
     showThanks([...picks]);
   } catch (err) {
